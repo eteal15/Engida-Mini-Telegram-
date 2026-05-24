@@ -1,0 +1,284 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'lenaedward949@gmail.com' && request.auth.token.email_verified == true 
+        || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Helper to evaluate if the current user has unlocked a chapter
+    function hasUnlockedChapter(chapterId) {
+      return exists(/databases/$(database)/documents/unlockTransactions/$(request.auth.uid + "_" + chapterId));
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+    
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'avatar', 'role', 'coins', 'streak', 'badges', 'lastActive'])
+        && data.keys().size() <= 11
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 256
+        && data.email is string && data.email.size() <= 256
+        && data.avatar is string && data.avatar.size() <= 2048
+        && data.role in ['reader', 'writer', 'admin']
+        && data.coins is int
+        && data.streak is int
+        && data.badges is list
+        && data.badges.size() <= 20
+        && data.lastActive is string;
+    }
+
+    function isValidStory(data) {
+      return data.keys().hasAll(['id', 'title', 'coverImage', 'description', 'descriptionAmh', 'genres', 'authorId', 'authorName', 'status', 'views', 'likes', 'bookmarksCount', 'unlockCount', 'isApproved', 'isFeatured', 'createdAt'])
+        && data.keys().size() <= 16
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 256
+        && data.coverImage is string && data.coverImage.size() <= 2048
+        && data.description is string && data.description.size() <= 10000
+        && data.descriptionAmh is string && data.descriptionAmh.size() <= 10000
+        && data.genres is list && data.genres.size() <= 10
+        && data.authorId == request.auth.uid
+        && data.authorName is string && data.authorName.size() <= 256
+        && data.status in ['ongoing', 'completed']
+        && data.views is int
+        && data.likes is int
+        && data.bookmarksCount is int
+        && data.unlockCount is int
+        && data.isApproved is bool
+        && data.isFeatured is bool;
+    }
+
+    function isValidChapter(data) {
+      return data.keys().hasAll(['id', 'storyId', 'chapterNumber', 'title', 'content', 'isLocked', 'coinPrice', 'views', 'likes', 'createdAt'])
+        && data.keys().size() <= 11
+        && data.id is string && data.id.size() <= 128
+        && data.storyId is string && data.storyId.size() <= 128
+        && data.chapterNumber is int
+        && data.title is string && data.title.size() <= 256
+        && data.content is string && data.content.size() <= 100000
+        && data.isLocked is bool
+        && data.coinPrice is int
+        && data.views is int
+        && data.likes is int;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['id', 'chapterId', 'storyId', 'userName', 'content', 'createdAt'])
+        && data.keys().size() <= 7
+        && data.id is string && data.id.size() <= 128
+        && data.chapterId is string && data.chapterId.size() <= 128
+        && data.storyId is string && data.storyId.size() <= 128
+        && data.userName is string && data.userName.size() <= 256
+        && data.content is string && data.content.size() <= 2000;
+    }
+
+    function isValidCoinTransaction(data) {
+      return data.keys().hasAll(['id', 'userId', 'coinAmount', 'birrAmount', 'referenceId', 'telebirrNumber', 'status', 'createdAt'])
+        && data.keys().size() <= 9
+        && data.id is string && data.id.size() <= 128
+        && data.userId == request.auth.uid
+        && data.coinAmount is int
+        && data.birrAmount is int
+        && data.referenceId is string && data.referenceId.size() <= 128
+        && data.telebirrNumber is string && data.telebirrNumber.size() <= 32
+        && data.status in ['pending', 'approved', 'rejected'];
+    }
+
+    function isValidMonetizationRequest(data) {
+      return data.keys().hasAll(['id', 'writerId', 'fullName', 'phoneNumber', 'email', 'telebirrNumber', 'status', 'createdAt'])
+        && data.keys().size() <= 8
+        && data.id is string && data.id.size() <= 128
+        && data.writerId == request.auth.uid
+        && data.fullName is string && data.fullName.size() <= 256
+        && data.phoneNumber is string && data.phoneNumber.size() <= 32
+        && data.email is string && data.email.size() <= 256
+        && data.telebirrNumber is string && data.telebirrNumber.size() <= 32
+        && data.status in ['pending', 'approved', 'rejected', 'suspended'];
+    }
+
+    function isValidPremiumRequest(data) {
+      return data.keys().hasAll(['id', 'writerId', 'storyId', 'storyTitle', 'status', 'createdAt'])
+        && data.keys().size() <= 6
+        && data.id is string && data.id.size() <= 128
+        && data.writerId == request.auth.uid
+        && data.storyId is string && data.storyId.size() <= 128
+        && data.storyTitle is string && data.storyTitle.size() <= 256
+        && data.status in ['pending', 'approved', 'rejected'];
+    }
+
+    // --- MATCH BLOCKS / DATABASE COOPERATIVE ---
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isVerifiedUser() && request.auth.uid == userId && isValidUserProfile(incoming()) && incoming().role == 'reader' && incoming().coins == 100;
+      allow update: if isVerifiedUser() && (
+        (request.auth.uid == userId && isValidUserProfile(incoming()) && (
+          // Action: Profile and active details updates (no self-updating coins or roles!)
+          incoming().role == existing().role
+          && incoming().coins == existing().coins
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'telegramId', 'streak', 'badges', 'lastActive', 'telebirrNumber'])
+        )) || isAdmin()
+      );
+    }
+
+    // 2. Stories Collection
+    match /stories/{storyId} {
+      allow read: if resource.data.isApproved == true || (isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin()));
+      allow create: if isVerifiedUser() 
+        && isValidId(storyId) 
+        && isValidStory(incoming()) 
+        && incoming().isApproved == false 
+        && incoming().isFeatured == false
+        && incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() && (
+        (resource.data.authorId == request.auth.uid && isValidStory(incoming()) && (
+          // Action: Edit story (cannot self-approve or self-feature)
+          incoming().isApproved == existing().isApproved
+          && incoming().isFeatured == existing().isFeatured
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'coverImage', 'description', 'descriptionAmh', 'genres', 'status', 'views', 'likes', 'bookmarksCount', 'unlockCount'])
+        )) || isAdmin()
+      );
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.authorId == request.auth.uid);
+
+      // Subcollection: Chapters of the story
+      match /chapters/{chapterId} {
+        allow read: if resource.data.isLocked == false 
+          || (isSignedIn() && (
+               get(/databases/$(database)/documents/stories/$(storyId)).data.authorId == request.auth.uid 
+               || isAdmin() 
+               || hasUnlockedChapter(chapterId)
+             ));
+        allow create: if isVerifiedUser() 
+          && isValidId(chapterId)
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.authorId == request.auth.uid 
+          && isValidChapter(incoming())
+          && incoming().isLocked == false
+          && incoming().createdAt == request.time;
+        allow update: if isVerifiedUser() && (
+          (get(/databases/$(database)/documents/stories/$(storyId)).data.authorId == request.auth.uid && isValidChapter(incoming()) && (
+            // Action: Edit chapter content
+            incoming().isLocked == existing().isLocked
+            && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'requestedPremiumLock', 'coinPrice', 'views', 'likes'])
+          )) || isAdmin()
+        );
+        allow delete: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/stories/$(storyId)).data.authorId == request.auth.uid);
+      }
+
+      // Subcollection: Comments on a story chapter
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isVerifiedUser() && isValidId(commentId) && isValidComment(incoming());
+        allow update, delete: if isVerifiedUser() && (
+          (existing().userName == request.auth.token.name && isValidComment(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['content']))
+          || isAdmin()
+        );
+      }
+    }
+
+    // 3. Bookmarks Collection
+    match /bookmarks/{bookmarkId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() && isValidId(bookmarkId) && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 4. Likes Collection
+    match /likes/{likeId} {
+      allow read: if true;
+      allow create: if isVerifiedUser() && isValidId(likeId) && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 5. Follows Collection
+    match /follows/{followId} {
+      allow read: if true;
+      allow create: if isVerifiedUser() && isValidId(followId) && incoming().followerId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.followerId == request.auth.uid || isAdmin());
+    }
+
+    // 6. Coin Transactions (Manual Telebirr Deposits)
+    match /coinTransactions/{txId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() && isValidId(txId) && isValidCoinTransaction(incoming()) && incoming().status == 'pending' && incoming().createdAt == request.time;
+      allow update: if isAdmin();
+    }
+
+    // 7. Unlock Transactions (Chapter Unlocking Ledger)
+    match /unlockTransactions/{unlockId} {
+      allow read: if isSignedIn() && (resource.data.readerId == request.auth.uid || resource.data.writerId == request.auth.uid || isAdmin());
+      // Reader can create a secure transaction ledger entry if verified and correctly matches identity
+      allow create: if isVerifiedUser() && isValidId(unlockId) && incoming().readerId == request.auth.uid;
+    }
+
+    // 8. Monetization Requests
+    match /monetizationRequests/{reqId} {
+      allow read: if isSignedIn() && (resource.data.writerId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() && isValidId(reqId) && isValidMonetizationRequest(incoming()) && incoming().status == 'pending';
+      allow update: if isAdmin();
+    }
+
+    // 9. Premium Lock Requests
+    match /premiumRequests/{reqId} {
+      allow read: if isSignedIn() && (resource.data.writerId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() && isValidId(reqId) && isValidPremiumRequest(incoming()) && incoming().status == 'pending';
+      allow update: if isAdmin();
+    }
+
+    // 10. Payout Records
+    match /payouts/{payoutId} {
+      allow read: if isSignedIn() && (resource.data.writerId == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 11. App Notifications
+    match /notifications/{notId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // 12. Content Reports
+    match /reports/{reportId} {
+      allow read: if isSignedIn() && (resource.data.reporterId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() && isValidId(reportId) && incoming().reporterId == request.auth.uid && incoming().status == 'pending';
+      allow update: if isAdmin();
+    }
+
+    // 13. Fraud Logs
+    match /fraudLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+    }
+  }
+}

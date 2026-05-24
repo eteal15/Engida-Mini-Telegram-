@@ -1,0 +1,6 @@
+{
+  "name": "Engida Amharic Stories",
+  "description": "Ethiopia's first Amharic serialized fiction and storytelling platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

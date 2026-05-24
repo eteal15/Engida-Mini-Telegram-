@@ -1,0 +1,304 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with coins, role, and details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "role": { "type": "string", "enum": ["reader", "writer", "admin"] },
+        "telegramId": { "type": "string" },
+        "coins": { "type": "number" },
+        "streak": { "type": "number" },
+        "badges": { "type": "array" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "telebirrNumber": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "coins", "streak", "badges", "lastActive"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Amharic story created by writers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionAmh": { "type": "string" },
+        "genres": { "type": "array" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "status": { "type": "string", "enum": ["ongoing", "completed"] },
+        "views": { "type": "number" },
+        "likes": { "type": "number" },
+        "bookmarksCount": { "type": "number" },
+        "unlockCount": { "type": "number" },
+        "isApproved": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "genres", "authorId", "authorName", "status", "views", "likes", "bookmarksCount", "unlockCount", "isApproved", "isFeatured", "createdAt"]
+    },
+    "Chapter": {
+      "title": "Chapter",
+      "description": "Story chapter, either free or locked",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storyId": { "type": "string" },
+        "chapterNumber": { "type": "number" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "isLocked": { "type": "boolean" },
+        "requestedPremiumLock": { "type": "boolean" },
+        "coinPrice": { "type": "number" },
+        "views": { "type": "number" },
+        "likes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "storyId", "chapterNumber", "title", "content", "isLocked", "coinPrice", "views", "likes", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Read comments on chapter",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chapterId": { "type": "string" },
+        "storyId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "chapterId", "storyId", "userName", "content", "createdAt"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "Bookmark reference",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "storyId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "storyId", "createdAt"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Like record for stories/chapters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "storyId": { "type": "string" },
+        "chapterId": { "type": "string" },
+        "type": { "type": "string", "enum": ["story", "chapter"] }
+      },
+      "required": ["id", "userId", "type"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "Follow between reader and author",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "followerId": { "type": "string" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["id", "followerId", "authorId"]
+    },
+    "CoinTransaction": {
+      "title": "CoinTransaction",
+      "description": "Record of Telebirr coin deposits matching actual verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "coinAmount": { "type": "number" },
+        "birrAmount": { "type": "number" },
+        "referenceId": { "type": "string" },
+        "telebirrNumber": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "coinAmount", "birrAmount", "referenceId", "telebirrNumber", "status", "createdAt"]
+    },
+    "UnlockTransaction": {
+      "title": "UnlockTransaction",
+      "description": "Revenue lock track for coin unlocking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "readerId": { "type": "string" },
+        "writerId": { "type": "string" },
+        "chapterId": { "type": "string" },
+        "storyId": { "type": "string" },
+        "amount": { "type": "number" },
+        "writerShare": { "type": "number" },
+        "platformShare": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "readerId", "writerId", "chapterId", "storyId", "amount", "writerShare", "platformShare", "createdAt"]
+    },
+    "MonetizationRequest": {
+      "title": "MonetizationRequest",
+      "description": "Verification submission for creator benefits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "writerId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "telebirrNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "suspended"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "writerId", "fullName", "phoneNumber", "email", "telebirrNumber", "status", "createdAt"]
+    },
+    "PremiumLockRequest": {
+      "title": "PremiumLockRequest",
+      "description": "Request by writers to lock content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "writerId": { "type": "string" },
+        "storyId": { "type": "string" },
+        "storyTitle": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "writerId", "storyId", "storyTitle", "status", "createdAt"]
+    },
+    "PayoutRecord": {
+      "title": "PayoutRecord",
+      "description": "Platform cash withdrawal record for writers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "writerId": { "type": "string" },
+        "writerName": { "type": "string" },
+        "telebirrNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "rejected"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "writerId", "writerName", "telebirrNumber", "amount", "status", "createdAt"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "User in-app system notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["chapter", "follow", "payment", "monetization", "payout", "featured"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "ContentReport": {
+      "title": "ContentReport",
+      "description": "Story content reporting standard for reviews",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "storyId": { "type": "string" },
+        "storyTitle": { "type": "string" },
+        "reason": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "reporterId", "storyId", "storyTitle", "reason", "details", "status", "createdAt"]
+    },
+    "FraudLog": {
+      "title": "FraudLog",
+      "description": "Fraud activities identified by system detection models",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "type": { "type": "string", "enum": ["rapid_skip", "device_repetition", "fake_payout"] },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "username", "type", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Users of ENGIDA platform"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Amharic published stories"
+    },
+    "/stories/{storyId}/chapters/{chapterId}": {
+      "schema": "Chapter",
+      "description": "Chapters of stories"
+    },
+    "/stories/{storyId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments on chapters in stories"
+    },
+    "/bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "Bookmarking states of stories"
+    },
+    "/likes/{likeId}": {
+      "schema": "Like",
+      "description": "Story and chapter likes"
+    },
+    "/follows/{followId}": {
+      "schema": "Follow",
+      "description": "Creator following list"
+    },
+    "/coinTransactions/{txId}": {
+      "schema": "CoinTransaction",
+      "description": "Reader Telebirr deposits for coins"
+    },
+    "/unlockTransactions/{unlockId}": {
+      "schema": "UnlockTransaction",
+      "description": "Chapter unlock transactions"
+    },
+    "/monetizationRequests/{reqId}": {
+      "schema": "MonetizationRequest",
+      "description": "Writer authorization submissions"
+    },
+    "/premiumRequests/{reqId}": {
+      "schema": "PremiumLockRequest",
+      "description": "Writer lock submissions"
+    },
+    "/payouts/{payoutId}": {
+      "schema": "PayoutRecord",
+      "description": "Writer cash settlement payouts"
+    },
+    "/notifications/{notId}": {
+      "schema": "AppNotification",
+      "description": "User in-app notifications"
+    },
+    "/reports/{reportId}": {
+      "schema": "ContentReport",
+      "description": "Report listings of violating stories"
+    },
+    "/fraudLogs/{logId}": {
+      "schema": "FraudLog",
+      "description": "Logs of suspicious reader activity"
+    }
+  }
+}
